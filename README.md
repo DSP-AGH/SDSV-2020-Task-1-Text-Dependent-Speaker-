@@ -1,5 +1,5 @@
 # SDSV-2020-Task-1-Text-Dependent-Speaker-
-AGH DSP Contribution to SdSV Challenge 2020 Task 1 : Text-Dependent Speaker Verification
+AGH DSP @ SdSV Challenge 2020 Task 1 : Text-Dependent Speaker Verification
 
 *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
 
