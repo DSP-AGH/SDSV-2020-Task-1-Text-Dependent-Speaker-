@@ -31,7 +31,7 @@ x_valid = KFold(n_splits=5)
 #współczynnikiważenia
 print('Start of s-split crossvalidation')
 split_count = 1
-for train_idxs, test_idxs in tqdm(x_valid.split(speakers_ids)):
+for train_idxs, test_idxs in x_valid.split(speakers_ids):
     #calculating training ivectors
     print('split ', str(split_count))
     print('calculating training ivectors...')
@@ -55,8 +55,9 @@ for train_idxs, test_idxs in tqdm(x_valid.split(speakers_ids)):
     trans_train_ivectors = clf.fit_transform(train_ivectors, train_phrase_list_for_ivectors)
 
     print('saving LDA to pickle file...')
-    with open('./crossvalidation_files/LDA/models/LDA_split_'+str(split_count)+'.pickle', 'wb') as file:
+    with open('./crossvalidation_files/LDA/models/LDA_split_' + str(split_count) + '.pickle', 'wb') as file:
         pickle.dump(clf, file)
+
 
     trans_mean_phrase_ivectors = []
     for class_it in range(1, 11):
@@ -74,9 +75,50 @@ for train_idxs, test_idxs in tqdm(x_valid.split(speakers_ids)):
              phrase_ivectors=trans_mean_phrase_ivectors)
     print('trans_mean_phrase_ivectors shape', trans_mean_phrase_ivectors.shape)
 
+    #training set validation
+    train_corr_scores = []
+    train_neg_scores = []
+    for it in tqdm(range(trans_train_ivectors.shape[0])):
+        for phrase_it in range(trans_mean_phrase_ivectors.shape[0]):
+            phrase_vector = np.expand_dims(trans_mean_phrase_ivectors[phrase_it], axis=0)
+            print('phrase_vector shape: ', phrase_vector.shape)
+            if int(train_phrase_list_for_ivectors[it]) == phrase_it + 1:
+                train_corr_scores.append(cosine_similarity(np.expand_dims(trans_train_ivectors[it], axis=0),
+                                                           phrase_vector))
+            else:
+                train_neg_scores.append(cosine_similarity(np.expand_dims(trans_train_ivectors[it], axis=0),
+                                                          phrase_vector))
+
+    train_corr_scores = np.squeeze(np.array(train_corr_scores))
+    train_neg_scores = np.squeeze(np.array(train_neg_scores))
+    print('plotting histograms')
+    plt.hist(train_neg_scores)
+    plt.hist(train_corr_scores)
+    title = 'train set - split ' + str(split_count)
+    plt.title(title)
+    plt.legend(['correct scores', 'negative_scores'])
+    plt.show()
+
+    # training scatterplots
+    print("plotting scatterplots for training set")
+    for phrase_it in phrases_ids:
+        tmp_class_LDA = []
+        for y_it in range(len(train_phrase_list_for_ivectors)):
+            if train_phrase_list_for_ivectors[y_it] == phrase_it:
+                tmp_class_LDA.append(trans_train_ivectors[y_it, :])
+        tmp_class_LDA = np.array(tmp_class_LDA)
+        print(tmp_class_LDA.shape)
+        plt.scatter(tmp_class_LDA[:, 0], tmp_class_LDA[:, 1])
+    plt.xlabel('LDA_1')
+    plt.ylabel('LDA_2')
+    plt.legend(phrases_ids)
+    plt.title('training set scatter plot - split ' + str(split_count))
+    plt.show()
+
     #calculating cosine similarity for test ivectors, appending correct and negative scores
+    #test set validation
     print('calculating cosine similarity for test ivectors, appending correct and negative scores')
-    test_ivectors = []
+    trans_test_ivectors = []
     test_phrase_list_for_ivectors = []
     corr_scores = []
     neg_scores = []
@@ -86,15 +128,16 @@ for train_idxs, test_idxs in tqdm(x_valid.split(speakers_ids)):
             data = data / (2 ** 15)
             w, n_data = i_vector.process_wav(wav_file=(data, fs), wav_type='data')
             trans_ivector = np.array(clf.transform(w))
-            print(trans_ivector.shape)
+            trans_test_ivectors.append(np.squeeze(trans_ivector).tolist())
+            test_phrase_list_for_ivectors.append(int(train_set[it, 2]))
             target_phrase = train_set[it, 2]
             for phrase_it in range(trans_mean_phrase_ivectors.shape[0]):
                 phrase_vector = np.expand_dims(trans_mean_phrase_ivectors[phrase_it], axis=0)
-                print('phrase_vector shape: ', phrase_vector.shape)
                 if int(train_set[it, 2]) == phrase_it + 1:
                     corr_scores.append(cosine_similarity(trans_ivector, phrase_vector))
                 else:
                     neg_scores.append(cosine_similarity(trans_ivector, phrase_vector))
+
     corr_scores = np.squeeze(np.array(corr_scores))
     neg_scores = np.squeeze(np.array(neg_scores))
     print('Single split calculations finished!')
@@ -113,6 +156,24 @@ for train_idxs, test_idxs in tqdm(x_valid.split(speakers_ids)):
     title = 'split '+str(split_count)
     plt.title(title)
     plt.legend(['correct scores', 'negative_scores'])
+    plt.show()
+
+    trans_test_ivectors = np.array(trans_test_ivectors)
+    print('trans_')
+    # test scatterplots
+    print("plotting scatterplots for test set")
+    for phrase_it in phrases_ids:
+        tmp_class_LDA = []
+        for y_it in range(len(test_phrase_list_for_ivectors)):
+            if test_phrase_list_for_ivectors[y_it] == phrase_it:
+                tmp_class_LDA.append(trans_test_ivectors[y_it, :])
+        tmp_class_LDA = np.array(tmp_class_LDA)
+        print(tmp_class_LDA.shape)
+        plt.scatter(tmp_class_LDA[:, 0], tmp_class_LDA[:, 1])
+    plt.xlabel('LDA_1')
+    plt.ylabel('LDA_2')
+    plt.legend(phrases_ids)
+    plt.title('test set scatter plot - split ' + str(split_count))
     plt.show()
 
     split_count+=1
